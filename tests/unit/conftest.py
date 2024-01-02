@@ -10,25 +10,29 @@ from src.models import (
 
 
 @pytest.fixture
-def registred_vehicle_with_one_item_catalog():
-    maintenance_item = MaintenanceItem(
-        service=Service.ENGINE_OIL_REPLACEMENT,
-        kilometrage=10_000,
-        month_interval=12,
-    )
-    maintenance_catalog = MaintenanceCatalog()
-    maintenance_catalog.add(maintenance_item)
+def registred_vehicle() -> RegistredVehicle:
     vehicle = Vehicle(
         manufacturer="Honda",
         model="Fit",
         year=2015,
-        maintenance_catalog=maintenance_catalog,
     )
     return RegistredVehicle(plate="ABC1A10", vehicle=vehicle)
 
 
 @pytest.fixture
-def registred_vehicle_with_two_items_catalog():
+def one_item_catalog(registred_vehicle) -> MaintenanceCatalog:
+    maintenance_item = MaintenanceItem(
+        service=Service.ENGINE_OIL_REPLACEMENT,
+        kilometrage=10_000,
+        month_interval=12,
+    )
+    maintenance_catalog = MaintenanceCatalog(vehicle_id=registred_vehicle.vehicle.id)
+    maintenance_catalog.add_maintenance_item(maintenance_item)
+    return maintenance_catalog
+
+
+@pytest.fixture
+def two_items_catalog(registred_vehicle) -> MaintenanceCatalog:
     maintenance_item_1 = MaintenanceItem(
         service=Service.ENGINE_OIL_REPLACEMENT,
         kilometrage=10_000,
@@ -39,13 +43,7 @@ def registred_vehicle_with_two_items_catalog():
         kilometrage=10_000,
         month_interval=12,
     )
-    maintenance_catalog = MaintenanceCatalog()
-    maintenance_catalog.add(maintenance_item_1)
-    maintenance_catalog.add(maintenance_item_2)
-    vehicle = Vehicle(
-        manufacturer="Honda",
-        model="Fit",
-        year=2015,
-        maintenance_catalog=maintenance_catalog,
-    )
-    return RegistredVehicle(plate="ABC1A10", vehicle=vehicle)
+    maintenance_catalog = MaintenanceCatalog(vehicle_id=registred_vehicle.vehicle.id)
+    maintenance_catalog.add_maintenance_item(maintenance_item_1)
+    maintenance_catalog.add_maintenance_item(maintenance_item_2)
+    return maintenance_catalog

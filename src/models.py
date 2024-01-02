@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Sequence, Iterator
+from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
 from enum import StrEnum
 from operator import attrgetter
@@ -16,12 +16,16 @@ class MaintenanceItem:
         self.kilometrage = kilometrage
         self.month_interval = month_interval
 
+    def __eq__(self, other):
+        return vars(self) == vars(other)
+
 
 class MaintenanceCatalog:
-    def __init__(self):
+    def __init__(self, vehicle_id: str):
+        self.vehicle_id = vehicle_id
         self._maintenance_items = {}
 
-    def add(self, maintenance_item: MaintenanceItem):
+    def add_maintenance_item(self, maintenance_item: MaintenanceItem):
         self._maintenance_items[maintenance_item.service] = maintenance_item
 
     def __iter__(self) -> Iterator[MaintenanceItem]:
@@ -29,11 +33,17 @@ class MaintenanceCatalog:
 
 
 class Vehicle:
-    def __init__(self, manufacturer: str, model: str, year: int, maintenance_catalog: MaintenanceCatalog):
+    def __init__(self, manufacturer: str, model: str, year: int):
+        self._id = ""
         self.manufacturer = manufacturer
         self.model = model
         self.year = year
-        self.maintenance_catalog = maintenance_catalog
+
+    @property
+    def id(self) -> str:
+        if not self._id:
+            self._id = f"{self.manufacturer} {self.model} {self.year}"
+        return self._id
 
 
 class NextServiceItem:
@@ -105,7 +115,7 @@ class RegistredVehicle:
         self.vehicle = vehicle
         self._services = defaultdict(ServicesPerItem)
 
-    def maintenance_performed(self, services: Sequence[ServiceItem]):
+    def maintenance_performed(self, services: Iterable[ServiceItem]):
         for item_service in services:
             services_per_item = self._services[item_service.service]
             services_per_item.add(item_service)
@@ -120,8 +130,8 @@ class RegistredVehicle:
             months_since_vehicle_release=maintenance_item.month_interval,
         )
 
-    def next_maintenance(self) -> NextMaintenance:
+    def next_maintenance(self, maintenance_catalog: MaintenanceCatalog) -> NextMaintenance:
         next_maintenace = NextMaintenance()
-        for maintenance_item in self.vehicle.maintenance_catalog:
+        for maintenance_item in maintenance_catalog:
             next_maintenace.add(self._get_next_service_item(maintenance_item))
         return next_maintenace
