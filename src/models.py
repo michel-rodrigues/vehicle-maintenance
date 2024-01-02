@@ -8,6 +8,23 @@ from operator import attrgetter
 class Service(StrEnum):
     ENGINE_OIL_REPLACEMENT = "engine_oil_replacement"
     ENGINE_OIL_FILTER_REPLACEMENT = "engine_oil_filter_replacement"
+    AIR_FILTER_REPLACEMENT = "air_filter_replacement"
+    INSPECT_VALVE_CLEARANCE = "inspect_valve_clearance"
+    FUEL_FILTER_REPLACEMENT = "fuel_filter_replacement"
+    SPARK_PLUGS_REPLACEMENT = "spark_plugs_replacement"
+    INSPECT_ACCESSORY_DRIVE_BELT = "inspect_accessory_drive_belt"
+    INSPECT_IDLE_SPEED = "inspect_idle_speed"
+    ENGINE_COOLANT_REPLACEMENT = "engine_coolant_replacement"
+    INSPECT_BATTERY_CHARGE_CAPACITY = "inspect_battery_charge_capacity"
+    TRANSMISSION_FLUID_REPLACEMENT = "transmission_fluid_replacement"
+    INSPECT_BRAKES = "inspect_brakes"
+    BRAKE_FLUID_REPLACEMENT = "brake_fluid_replacement"
+    INSPECT_DUST_AND_POLLEN_FILTER_REPLACEMENT = "inspect_dust_and_pollen_filter_replacement"
+    INSPECT_STEERING_TERMINALS_AND_BOX_AND_HOODS = "inspect_steering_terminals_and_box_and_hoods"
+    INSPECT_SUSPENSION_COMPONENTS = "inspect_suspension_components"
+    INSPECT_DRIVE_SHAFT_BOOTS = "inspect_drive_shaft_boots"
+    INSPECT_BRAKE_HOSES_AND_LINES = "inspect_inspect_brake_hoses_and_lines"
+    INSPECT_FUEL_PIPES_AND_CONNECTIONS = "inspect_inspect_fuel_pipes_and_connections"
 
 
 class MaintenanceItem:
