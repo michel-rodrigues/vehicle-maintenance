@@ -92,12 +92,13 @@ def test_get_maintenance_catalog():
         """
         CREATE TABLE maintenance_items (
             service VARCHAR(255) NOT NULL,
-            kilometrage INT NOT NULL,
-            month_interval INT NOT NULL,
+            kilometrage INT,
+            month_interval INT,
             vehicle_id VARCHAR(255) NOT NULL,
             CONSTRAINT fk_vehicle
                 FOREIGN KEY(vehicle_id)
                     REFERENCES vehicles(id)
+                CHECK (kilometrage IS NOT NULL OR month_interval IS NOT NULL)
         );
     """
     )
