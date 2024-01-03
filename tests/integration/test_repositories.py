@@ -1,3 +1,4 @@
+import aiosqlite
 import sqlite3
 from datetime import datetime
 
@@ -5,11 +6,11 @@ from src.models import Service, MaintenanceItem
 from src.repositories import RegistredVehicleRepository, MaintenanceCatalogRepository
 
 
-def test_get_registred_vehicle():
-    con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
-    cur = con.cursor()
-    cur.execute("DROP TABLE IF EXISTS vehicles;")
-    cur.execute(
+async def test_get_registred_vehicle():
+    con = await aiosqlite.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
+    cur = await con.cursor()
+    await cur.execute("DROP TABLE IF EXISTS vehicles;")
+    await cur.execute(
         """
         CREATE TABLE vehicles (
             id VARCHAR(255) PRIMARY KEY,
@@ -19,15 +20,15 @@ def test_get_registred_vehicle():
         );
     """
     )
-    cur.execute(
+    await cur.execute(
         """
         INSERT INTO vehicles VALUES
             ('Honda Fit 2015', 'Honda', 'Fit', '2015')
     """
     )
 
-    cur.execute("DROP TABLE IF EXISTS registred_vehicles;")
-    cur.execute(
+    await cur.execute("DROP TABLE IF EXISTS registred_vehicles;")
+    await cur.execute(
         """
         CREATE TABLE registred_vehicles (
             plate VARCHAR(255) PRIMARY KEY,
@@ -38,15 +39,15 @@ def test_get_registred_vehicle():
         );
     """
     )
-    cur.execute(
+    await cur.execute(
         """
         INSERT INTO registred_vehicles VALUES
             ('ABC1A10', 'Honda Fit 2015')
     """
     )
 
-    cur.execute("DROP TABLE IF EXISTS services_items;")
-    cur.execute(
+    await cur.execute("DROP TABLE IF EXISTS services_items;")
+    await cur.execute(
         """
         CREATE TABLE services_items (
             service VARCHAR(255) NOT NULL,
@@ -60,7 +61,7 @@ def test_get_registred_vehicle():
         );
     """
     )
-    cur.execute(
+    await cur.execute(
         """
         INSERT INTO services_items VALUES
             ('engine_oil_replacement', 10000, 10, '2024-01-02T02:55:10.369639+00:00', 'ABC1A10'),
@@ -69,9 +70,9 @@ def test_get_registred_vehicle():
     """
     )
 
-    con.commit()
+    await con.commit()
 
-    registred_vehicle = RegistredVehicleRepository(con).get(plate="ABC1A10")
+    registred_vehicle = await RegistredVehicleRepository(con).get(plate="ABC1A10")
     assert registred_vehicle.plate == "ABC1A10"
     assert registred_vehicle.vehicle.manufacturer == "Honda"
     assert registred_vehicle.vehicle.model == "Fit"
@@ -84,11 +85,11 @@ def test_get_registred_vehicle():
     assert service_per_item.service_date == datetime.fromisoformat("2024-01-02T02:55:10.369639+00:00")
 
 
-def test_get_maintenance_catalog():
-    con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
-    cur = con.cursor()
-    cur.execute("DROP TABLE IF EXISTS maintenance_items;")
-    cur.execute(
+async def test_get_maintenance_catalog():
+    con = await aiosqlite.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
+    cur = await con.cursor()
+    await cur.execute("DROP TABLE IF EXISTS maintenance_items;")
+    await cur.execute(
         """
         CREATE TABLE maintenance_items (
             service VARCHAR(255) NOT NULL,
@@ -102,14 +103,14 @@ def test_get_maintenance_catalog():
         );
     """
     )
-    cur.execute(
+    await cur.execute(
         """
         INSERT INTO maintenance_items VALUES
             ('engine_oil_replacement', '10000', '12', 'Honda Fit 2015'),
             ('engine_oil_filter_replacement', '10000', '12', 'Honda Fit 2015')
     """
     )
-    con.commit()
+    await con.commit()
 
     expected_maintenance_items = [
         MaintenanceItem(
@@ -124,5 +125,5 @@ def test_get_maintenance_catalog():
         ),
     ]
 
-    maintenance_catalog = MaintenanceCatalogRepository(con).get(vehicle_id="Honda Fit 2015")
+    maintenance_catalog = await MaintenanceCatalogRepository(con).get(vehicle_id="Honda Fit 2015")
     assert list(maintenance_catalog) == expected_maintenance_items

@@ -44,7 +44,7 @@ class MaintenanceCatalog:
         self.vehicle_id = vehicle_id
         self._maintenance_items = {}
 
-    def add_maintenance_item(self, maintenance_item: MaintenanceItem):
+    async def add_maintenance_item(self, maintenance_item: MaintenanceItem):
         self._maintenance_items[maintenance_item.service] = maintenance_item
 
     def __iter__(self) -> Iterator[MaintenanceItem]:
@@ -99,14 +99,14 @@ class ServicesPerItem:
     def __len__(self):
         return len(self._items)
 
-    def add(self, service_item: ServiceItem):
+    async def add(self, service_item: ServiceItem):
         self._items.append(service_item)
 
-    def _last_service(self) -> ServiceItem:
+    async def _last_service(self) -> ServiceItem:
         return sorted(self._items, key=attrgetter("service_date"), reverse=True)[0]
 
-    def next_service(self, maintenance_item: MaintenanceItem) -> NextServiceItem:
-        last_service = self._last_service()
+    async def next_service(self, maintenance_item: MaintenanceItem) -> NextServiceItem:
+        last_service = await self._last_service()
         return NextServiceItem(
             service=last_service.service,
             kilometrage=last_service.kilometrage + maintenance_item.kilometrage,
@@ -124,7 +124,7 @@ class NextMaintenance:
     def __len__(self):
         return len(self._items)
 
-    def add(self, next_service_item: NextServiceItem):
+    async def add(self, next_service_item: NextServiceItem):
         self._items.append(next_service_item)
 
 
@@ -134,23 +134,23 @@ class RegistredVehicle:
         self.vehicle = vehicle
         self._services = defaultdict(ServicesPerItem)
 
-    def maintenance_performed(self, services: Iterable[ServiceItem]):
+    async def maintenance_performed(self, services: Iterable[ServiceItem]):
         for item_service in services:
             services_per_item = self._services[item_service.service]
-            services_per_item.add(item_service)
+            await services_per_item.add(item_service)
 
-    def _get_next_service_item(self, maintenance_item):
+    async def _get_next_service_item(self, maintenance_item):
         services_per_item = self._services.get(maintenance_item.service)
         if services_per_item:
-            return services_per_item.next_service(maintenance_item)
+            return await services_per_item.next_service(maintenance_item)
         return NextServiceItem(
             service=maintenance_item.service,
             kilometrage=maintenance_item.kilometrage,
             months_since_vehicle_release=maintenance_item.month_interval,
         )
 
-    def next_maintenance(self, maintenance_catalog: MaintenanceCatalog) -> NextMaintenance:
+    async def next_maintenance(self, maintenance_catalog: MaintenanceCatalog) -> NextMaintenance:
         next_maintenace = NextMaintenance()
         for maintenance_item in maintenance_catalog:
-            next_maintenace.add(self._get_next_service_item(maintenance_item))
+            await next_maintenace.add(await self._get_next_service_item(maintenance_item))
         return next_maintenace
