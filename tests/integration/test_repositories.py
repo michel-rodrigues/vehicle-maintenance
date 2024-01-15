@@ -3,7 +3,6 @@ from datetime import datetime, timezone, timedelta
 import pytest
 
 from src.database.connection import db_connection
-from src.database.tables import create_vehicle_table, create_registred_vehicles_table, create_services_items_table
 from src.models import Service, MaintenanceItem, ServiceItem
 from src.repositories import RegistredVehicleRepository, MaintenanceCatalogRepository
 

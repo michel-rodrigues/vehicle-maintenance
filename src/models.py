@@ -138,11 +138,7 @@ class RegistredVehicle:
         self._services = defaultdict(ServicesPerItem)
 
     async def services_history(self):
-        return [
-            service_item
-            for services_per_item in self._services.values()
-            for service_item in services_per_item
-        ]
+        return [service_item for services_per_item in self._services.values() for service_item in services_per_item]
 
     async def maintenance_performed(self, services: Iterable[ServiceItem]):
         for item_service in services:
