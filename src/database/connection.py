@@ -1,14 +1,17 @@
+import os
+
+import aiosqlite
 import sqlite3
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from sqlite3 import Connection
 
 
-@contextmanager
-def db_connection(self) -> Connection:
-    connection = self._sqlite_connection or sqlite3.connect("database.db", detect_types=sqlite3.PARSE_COLNAMES)
-    connection.row_factory = sqlite3.Row
+@asynccontextmanager
+async def db_connection() -> Connection:
+    connection = await aiosqlite.connect(os.environ.get("DATABASE", "database.db"), detect_types=sqlite3.PARSE_COLNAMES)
+    connection.row_factory = aiosqlite.Row
     try:
         yield connection
-        connection.commit()
+        await connection.commit()
     finally:
-        connection.close()
+        await connection.close()

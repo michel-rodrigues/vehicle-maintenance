@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from src.models import (
@@ -7,6 +9,12 @@ from src.models import (
     Service,
     Vehicle,
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def set_env():
+    os.environ["DATABASE"] = "test.db"
+    yield
 
 
 @pytest.fixture

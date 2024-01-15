@@ -99,6 +99,9 @@ class ServicesPerItem:
     def __len__(self):
         return len(self._items)
 
+    def __iter__(self) -> Iterator[ServiceItem]:
+        return iter(self._items)
+
     async def add(self, service_item: ServiceItem):
         self._items.append(service_item)
 
@@ -133,6 +136,13 @@ class RegistredVehicle:
         self.plate = plate
         self.vehicle = vehicle
         self._services = defaultdict(ServicesPerItem)
+
+    async def services_history(self):
+        return [
+            service_item
+            for services_per_item in self._services.values()
+            for service_item in services_per_item
+        ]
 
     async def maintenance_performed(self, services: Iterable[ServiceItem]):
         for item_service in services:

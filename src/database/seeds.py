@@ -1,9 +1,13 @@
-from sqlite3 import Connection
+import asyncio
+
+from aiosqlite import Connection
+
+from src.database.connection import db_connection
 
 
-def populate_vehicle_table(connection: Connection):
-    cur = connection.cursor()
-    cur.execute(
+async def populate_vehicle_table(connection: Connection):
+    cur = await connection.cursor()
+    await cur.execute(
         """
         INSERT INTO vehicles VALUES
             ('Honda Fit 2015', 'Honda', 'Fit', '2015')
@@ -11,9 +15,9 @@ def populate_vehicle_table(connection: Connection):
     )
 
 
-def populate_registred_vehicles_table(connection: Connection):
-    cur = connection.cursor()
-    cur.execute(
+async def populate_registred_vehicles_table(connection: Connection):
+    cur = await connection.cursor()
+    await cur.execute(
         """
         INSERT INTO registred_vehicles VALUES
             ('FZG5A15', 'Honda Fit 2015')
@@ -21,9 +25,9 @@ def populate_registred_vehicles_table(connection: Connection):
     )
 
 
-def populate_maintenance_items_table(connection: Connection):
-    cur = connection.cursor()
-    cur.execute(
+async def populate_maintenance_items_table(connection: Connection):
+    cur = await connection.cursor()
+    await cur.execute(
         """
         INSERT INTO maintenance_items VALUES
             ('engine_oil_replacement', '10000', '12', 'Honda Fit 2015'),
@@ -49,3 +53,14 @@ def populate_maintenance_items_table(connection: Connection):
             ('inspect_inspect_fuel_pipes_and_connections', '20000', '12', 'Honda Fit 2015')
     """
     )
+
+
+async def seed():
+    async with db_connection() as connection:
+        await populate_vehicle_table(connection)
+        await populate_registred_vehicles_table(connection)
+        await populate_maintenance_items_table(connection)
+
+
+if __name__ == "__main__":
+    asyncio.run(seed())

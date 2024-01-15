@@ -1,78 +1,40 @@
-import aiosqlite
-import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
-from src.models import Service, MaintenanceItem
+import pytest
+
+from src.database.connection import db_connection
+from src.database.tables import create_vehicle_table, create_registred_vehicles_table, create_services_items_table
+from src.models import Service, MaintenanceItem, ServiceItem
 from src.repositories import RegistredVehicleRepository, MaintenanceCatalogRepository
 
 
+@pytest.mark.usefixtures("setup_vehicle_table", "setup_registred_vehicles_table", "setup_services_items_table")
 async def test_get_registred_vehicle():
-    con = await aiosqlite.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
-    cur = await con.cursor()
-    await cur.execute("DROP TABLE IF EXISTS vehicles;")
-    await cur.execute(
+    async with db_connection() as con:
+        cur = await con.cursor()
+        await cur.execute(
+            """
+            INSERT INTO vehicles VALUES
+                ('Honda Fit 2015', 'Honda', 'Fit', '2015')
         """
-        CREATE TABLE vehicles (
-            id VARCHAR(255) PRIMARY KEY,
-            manufacturer VARCHAR(255) NOT NULL,
-            model VARCHAR(255) NOT NULL,
-            year VARCHAR(255) NOT NULL
-        );
-    """
-    )
-    await cur.execute(
+        )
+        await cur.execute(
+            """
+            INSERT INTO registred_vehicles VALUES
+                ('ABC1A10', 'Honda Fit 2015')
         """
-        INSERT INTO vehicles VALUES
-            ('Honda Fit 2015', 'Honda', 'Fit', '2015')
-    """
-    )
+        )
+        await cur.execute(
+            """
+            INSERT INTO services_items VALUES
+                ('engine_oil_replacement', 10000, 10, '2024-01-02T02:55:10.369639+00:00', 'ABC1A10'),
+                ('engine_oil_replacement', 20000, 18, '2024-08-23T02:55:10.369639+00:00', 'ABC1A10'),
+                ('engine_oil_filter_replacement', 10000, 10, '2024-01-02T02:55:10.369639+00:00', 'ABC1A10')
+        """
+        )
 
-    await cur.execute("DROP TABLE IF EXISTS registred_vehicles;")
-    await cur.execute(
-        """
-        CREATE TABLE registred_vehicles (
-            plate VARCHAR(255) PRIMARY KEY,
-            vehicle_id VARCHAR(255) NOT NULL,
-            CONSTRAINT fk_vehicle
-                FOREIGN KEY(vehicle_id)
-                    REFERENCES vehicles(id)
-        );
-    """
-    )
-    await cur.execute(
-        """
-        INSERT INTO registred_vehicles VALUES
-            ('ABC1A10', 'Honda Fit 2015')
-    """
-    )
+    registred_vehicle = await RegistredVehicleRepository().get(plate="ABC1A10")
 
-    await cur.execute("DROP TABLE IF EXISTS services_items;")
-    await cur.execute(
-        """
-        CREATE TABLE services_items (
-            service VARCHAR(255) NOT NULL,
-            kilometrage INT NOT NULL,
-            months_since_vehicle_release INT NOT NULL,
-            service_date VARCHAR(255) NOT NULL,
-            vehicle_plate VARCHAR(255) NOT NULL,
-            CONSTRAINT fk_vehicle_plate
-                FOREIGN KEY(vehicle_plate)
-                    REFERENCES registred_vehicles(plate)
-        );
-    """
-    )
-    await cur.execute(
-        """
-        INSERT INTO services_items VALUES
-            ('engine_oil_replacement', 10000, 10, '2024-01-02T02:55:10.369639+00:00', 'ABC1A10'),
-            ('engine_oil_replacement', 20000, 18, '2024-08-23T02:55:10.369639+00:00', 'ABC1A10'),
-            ('engine_oil_filter_replacement', 10000, 10, '2024-01-02T02:55:10.369639+00:00', 'ABC1A10')
-    """
-    )
-
-    await con.commit()
-
-    registred_vehicle = await RegistredVehicleRepository(con).get(plate="ABC1A10")
     assert registred_vehicle.plate == "ABC1A10"
     assert registred_vehicle.vehicle.manufacturer == "Honda"
     assert registred_vehicle.vehicle.model == "Fit"
@@ -85,32 +47,97 @@ async def test_get_registred_vehicle():
     assert service_per_item.service_date == datetime.fromisoformat("2024-01-02T02:55:10.369639+00:00")
 
 
+@pytest.mark.usefixtures("setup_vehicle_table", "setup_registred_vehicles_table", "setup_services_items_table")
+async def test_persist_new_registred_vehicle(registred_vehicle):
+    await registred_vehicle.maintenance_performed(
+        [
+            ServiceItem(
+                service=Service.ENGINE_OIL_REPLACEMENT,
+                kilometrage=10_000,
+                months_since_vehicle_release=8,
+                service_date=datetime.now(tz=timezone.utc) - timedelta(weeks=24),
+            ),
+            ServiceItem(
+                service=Service.ENGINE_OIL_REPLACEMENT,
+                kilometrage=20_000,
+                months_since_vehicle_release=14,
+                service_date=datetime.now(tz=timezone.utc),
+            ),
+            ServiceItem(
+                service=Service.BRAKE_FLUID_REPLACEMENT,
+                kilometrage=25_000,
+                months_since_vehicle_release=14,
+                service_date=datetime.now(tz=timezone.utc),
+            ),
+        ]
+    )
+    repository = RegistredVehicleRepository()
+    await repository.add(registred_vehicle)
+
+    registred_vehicle = await repository.get(plate="ABC1A10")
+    assert registred_vehicle.plate == "ABC1A10"
+    assert registred_vehicle.vehicle.manufacturer == "Honda"
+    assert registred_vehicle.vehicle.model == "Fit"
+    assert registred_vehicle.vehicle.year == "2015"
+    services = registred_vehicle._services
+    assert len(services) == 2
+    assert len(services[Service.ENGINE_OIL_REPLACEMENT]) == 2
+    assert len(services[Service.BRAKE_FLUID_REPLACEMENT]) == 1
+
+
+@pytest.mark.usefixtures("setup_vehicle_table", "setup_registred_vehicles_table", "setup_services_items_table")
+async def test_update_persisted_registred_vehicle(registred_vehicle):
+    await registred_vehicle.maintenance_performed(
+        [
+            ServiceItem(
+                service=Service.ENGINE_OIL_REPLACEMENT,
+                kilometrage=10_000,
+                months_since_vehicle_release=8,
+                service_date=datetime.now(tz=timezone.utc) - timedelta(weeks=24),
+            ),
+            ServiceItem(
+                service=Service.BRAKE_FLUID_REPLACEMENT,
+                kilometrage=25_000,
+                months_since_vehicle_release=14,
+                service_date=datetime.now(tz=timezone.utc),
+            ),
+        ]
+    )
+    repository = RegistredVehicleRepository()
+    await repository.add(registred_vehicle)
+
+    new_service_item = ServiceItem(
+        service=Service.ENGINE_OIL_REPLACEMENT,
+        kilometrage=20_000,
+        months_since_vehicle_release=14,
+        service_date=datetime.now(tz=timezone.utc),
+    )
+    repository = RegistredVehicleRepository()
+    registred_vehicle = await repository.get(plate="ABC1A10")
+    await registred_vehicle.maintenance_performed([new_service_item])
+    await repository.add(registred_vehicle)
+
+    assert registred_vehicle.plate == "ABC1A10"
+    assert registred_vehicle.vehicle.manufacturer == "Honda"
+    assert registred_vehicle.vehicle.model == "Fit"
+    assert registred_vehicle.vehicle.year == "2015"
+    services = registred_vehicle._services
+    assert len(services) == 2
+    assert len(services[Service.ENGINE_OIL_REPLACEMENT]) == 2
+    assert len(services[Service.BRAKE_FLUID_REPLACEMENT]) == 1
+
+
+@pytest.mark.usefixtures("setup_maintenance_items_table")
 async def test_get_maintenance_catalog():
-    con = await aiosqlite.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
-    cur = await con.cursor()
-    await cur.execute("DROP TABLE IF EXISTS maintenance_items;")
-    await cur.execute(
+    async with db_connection() as con:
+        cur = await con.cursor()
+        await cur.execute(
+            """
+            INSERT INTO maintenance_items VALUES
+                ('engine_oil_replacement', '10000', '12', 'Honda Fit 2015'),
+                ('engine_oil_filter_replacement', '10000', '12', 'Honda Fit 2015')
         """
-        CREATE TABLE maintenance_items (
-            service VARCHAR(255) NOT NULL,
-            kilometrage INT,
-            month_interval INT,
-            vehicle_id VARCHAR(255) NOT NULL,
-            CONSTRAINT fk_vehicle
-                FOREIGN KEY(vehicle_id)
-                    REFERENCES vehicles(id)
-                CHECK (kilometrage IS NOT NULL OR month_interval IS NOT NULL)
-        );
-    """
-    )
-    await cur.execute(
-        """
-        INSERT INTO maintenance_items VALUES
-            ('engine_oil_replacement', '10000', '12', 'Honda Fit 2015'),
-            ('engine_oil_filter_replacement', '10000', '12', 'Honda Fit 2015')
-    """
-    )
-    await con.commit()
+        )
 
     expected_maintenance_items = [
         MaintenanceItem(
@@ -125,5 +152,5 @@ async def test_get_maintenance_catalog():
         ),
     ]
 
-    maintenance_catalog = await MaintenanceCatalogRepository(con).get(vehicle_id="Honda Fit 2015")
+    maintenance_catalog = await MaintenanceCatalogRepository().get(vehicle_id="Honda Fit 2015")
     assert list(maintenance_catalog) == expected_maintenance_items
