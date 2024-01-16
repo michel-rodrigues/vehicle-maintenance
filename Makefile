@@ -6,3 +6,13 @@ install-deps:
 	@poetry install --no-root
 	@pre-commit install --hook-type commit-msg
 	@pre-commit run --all-files
+
+
+run:
+	@poetry run uvicorn src.entrypoint:app --reload
+
+seed:
+	@poetry run python -m src.database.seeds
+
+create-tables:
+	@poetry run python -m src.database.tables

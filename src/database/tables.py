@@ -65,6 +65,7 @@ async def create_services_items_table(connection: Connection):
             CONSTRAINT fk_vehicle_plate
                 FOREIGN KEY(vehicle_plate)
                     REFERENCES registred_vehicles(plate)
+                UNIQUE (service, kilometrage, months_since_vehicle_release, service_date, vehicle_plate)
         );
     """
     )
