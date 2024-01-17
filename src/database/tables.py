@@ -47,6 +47,7 @@ async def create_maintenance_items_table(connection: Connection):
                 FOREIGN KEY(vehicle_id)
                     REFERENCES vehicles(id)
                 CHECK (kilometrage IS NOT NULL OR month_interval IS NOT NULL)
+                UNIQUE (service, kilometrage, month_interval, vehicle_id)
         );
     """
     )

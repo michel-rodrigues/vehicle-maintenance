@@ -50,6 +50,9 @@ class MaintenanceCatalog:
     def __iter__(self) -> Iterator[MaintenanceItem]:
         return iter(self._maintenance_items.values())
 
+    def __len__(self):
+        return len(self._maintenance_items)
+
 
 class Vehicle:
     def __init__(self, manufacturer: str, model: str, year: int):

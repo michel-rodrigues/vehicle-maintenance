@@ -40,38 +40,42 @@ class SQLiteRepository:
 
 
 class RegistredVehicleRepository(SQLiteRepository):
+    async def _get_registred_vehicle(self, plate: str, cursor):
+        query = """
+            SELECT *
+            FROM registred_vehicles as rv
+            INNER JOIN vehicles as v
+                ON rv.vehicle_id = v.id
+            WHERE rv.plate = :plate
+        """
+        result = await cursor.execute(query, {"plate": plate})
+        row = await result.fetchone()
+        vehicle = Vehicle(manufacturer=row["manufacturer"], model=row["model"], year=row["year"])
+        vehicle._id = row["id"]
+        return RegistredVehicle(plate=row["plate"], vehicle=vehicle)
+
+    async def _fetch_service_items(self, plate: str, cursor):
+        query = """
+            SELECT service, kilometrage, months_since_vehicle_release, service_date as "service_date [datetime]"
+            FROM services_items
+            WHERE vehicle_plate = :plate
+        """
+        result = await cursor.execute(query, {"plate": plate})
+        return (
+            ServiceItem(
+                service=row["service"],
+                kilometrage=row["kilometrage"],
+                months_since_vehicle_release=row["months_since_vehicle_release"],
+                service_date=row["service_date"],
+            )
+            for row in await result.fetchall()
+        )
+
     async def get(self, plate: str) -> RegistredVehicle:
         async with self._connection() as connection:
             cursor = await connection.cursor()
-            query = """
-                SELECT *
-                FROM registred_vehicles as rv
-                INNER JOIN vehicles as v
-                    ON rv.vehicle_id = v.id
-                WHERE rv.plate = :plate
-            """
-            result = await cursor.execute(query, {"plate": plate})
-            row = await result.fetchone()
-            vehicle = Vehicle(manufacturer=row["manufacturer"], model=row["model"], year=row["year"])
-            vehicle._id = row["id"]
-            regitred_vehicle = RegistredVehicle(plate=row["plate"], vehicle=vehicle)
-
-            query = """
-                SELECT service, kilometrage, months_since_vehicle_release, service_date as "service_date [datetime]"
-                FROM services_items
-                WHERE vehicle_plate = :plate
-            """
-            result = await cursor.execute(query, {"plate": plate})
-            await regitred_vehicle.maintenance_performed(
-                ServiceItem(
-                    service=row["service"],
-                    kilometrage=row["kilometrage"],
-                    months_since_vehicle_release=row["months_since_vehicle_release"],
-                    service_date=row["service_date"],
-                )
-                for row in await result.fetchall()
-            )
-
+            regitred_vehicle = await self._get_registred_vehicle(plate, cursor)
+            await regitred_vehicle.maintenance_performed(await self._fetch_service_items(plate, cursor))
         return regitred_vehicle
 
     async def _translate_vehicle_to_sql(self, vehicle: Vehicle) -> str:
@@ -104,7 +108,7 @@ class RegistredVehicleRepository(SQLiteRepository):
             )
         sql_insert = sql_insert[:-1]  # Remove the last comma
         sql_insert += (
-            "ON CONFLICT (service,kilometrage,months_since_vehicle_release,service_date,vehicle_plate) DO NOTHING"
+            "ON CONFLICT (service, kilometrage, months_since_vehicle_release, service_date, vehicle_plate) DO NOTHING"
         )
         return sql_insert
 
@@ -116,16 +120,16 @@ class RegistredVehicleRepository(SQLiteRepository):
             services_history = await registred_vehicle.services_history()
             if services_history:
                 await cursor.execute(
-                    await self._translate_services_items_to_sql(
-                        await registred_vehicle.services_history(),
-                        registred_vehicle.plate,
-                    )
+                    await self._translate_services_items_to_sql(services_history, registred_vehicle.plate)
                 )
 
 
+class EmptyCatalogConstraint(Exception):
+    pass
+
+
 class MaintenanceCatalogRepository(SQLiteRepository):
-    async def get(self, vehicle_id: str) -> MaintenanceCatalog:
-        maintenance_catalog = MaintenanceCatalog(vehicle_id)
+    async def _fetch_maintenance_items(self, vehicle_id: str):
         query = """
             SELECT kilometrage, month_interval, service AS "service [service]"
             FROM maintenance_items
@@ -133,12 +137,35 @@ class MaintenanceCatalogRepository(SQLiteRepository):
         """
         async with self._connection() as connection:
             result = await connection.execute(query, {"vehicle_id": vehicle_id})
-            for row in await result.fetchall():
-                await maintenance_catalog.add_maintenance_item(
-                    MaintenanceItem(
-                        service=row["service"],
-                        kilometrage=row["kilometrage"],
-                        month_interval=row["month_interval"],
-                    )
+            return (
+                MaintenanceItem(
+                    service=row["service"],
+                    kilometrage=row["kilometrage"],
+                    month_interval=row["month_interval"],
                 )
+                for row in await result.fetchall()
+            )
+
+    async def get(self, vehicle_id: str) -> MaintenanceCatalog:
+        maintenance_catalog = MaintenanceCatalog(vehicle_id)
+        for maintenance_item in await self._fetch_maintenance_items(vehicle_id):
+            await maintenance_catalog.add_maintenance_item(maintenance_item)
         return maintenance_catalog
+
+    async def _translate_maintenance_items_to_sql(self, maintenance_catalog):
+        sql_insert = "INSERT INTO maintenance_items(service, kilometrage, month_interval, vehicle_id) VALUES"
+        for maintenance_item in maintenance_catalog:
+            sql_insert += (
+                f"('{maintenance_item.service}', {maintenance_item.kilometrage}, {maintenance_item.month_interval}, "
+                f"'{maintenance_catalog.vehicle_id}'),"
+            )
+        sql_insert = sql_insert[:-1]  # Remove the last comma
+        sql_insert += "ON CONFLICT (service, kilometrage, month_interval, vehicle_id) DO NOTHING"
+        return sql_insert
+
+    async def add(self, maintenance_catalog: MaintenanceCatalog):
+        if not maintenance_catalog:
+            raise EmptyCatalogConstraint
+        async with self._connection() as connection:
+            cursor = await connection.cursor()
+            await cursor.execute(await self._translate_maintenance_items_to_sql(maintenance_catalog))
