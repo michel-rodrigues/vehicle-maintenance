@@ -44,3 +44,7 @@ async def test_should_accumulate_service_items(registred_vehicle):
     assert len(services_per_item) == 2
     assert services_per_item._items[0] == service_item
     assert services_per_item._items[1] == last_service_item_performed
+
+
+async def test_should_calculate_months_since_vehicle_release(registred_vehicle):
+    assert await registred_vehicle.months_since_release(datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)) == 108

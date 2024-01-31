@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from unittest import mock
 
 import pytest
 
@@ -48,18 +49,22 @@ async def test_next_maintenance(test_client, registred_vehicle):
     maintenance_catalog_repository = MaintenanceCatalogRepository()
     await maintenance_catalog_repository.add(maintenance_catalog)
 
-    expected_response = [
-        {
-            "service": engine_oil_replacement.service,
-            "kilometrage": engine_oil_replacement.kilometrage,
-            "months_since_vehicle_release": engine_oil_replacement.month_interval,
-        },
-        {
-            "service": engine_oil_filter_replacement.service,
-            "kilometrage": engine_oil_replacement.kilometrage,
-            "months_since_vehicle_release": engine_oil_replacement.month_interval,
-        },
-    ]
-    response = test_client.get(f"/registred-vehicles/{registred_vehicle.plate}/next-maintenance")
+    expected_response = {
+        "months_since_vehicle_release": 108,
+        "items": [
+            {
+                "service": engine_oil_replacement.service,
+                "kilometrage": engine_oil_replacement.kilometrage,
+                "months_since_vehicle_release": engine_oil_replacement.month_interval,
+            },
+            {
+                "service": engine_oil_filter_replacement.service,
+                "kilometrage": engine_oil_replacement.kilometrage,
+                "months_since_vehicle_release": engine_oil_replacement.month_interval,
+            },
+        ],
+    }
+    with mock.patch("src.models.utc_now", return_value=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)):
+        response = test_client.get(f"/registred-vehicles/{registred_vehicle.plate}/next-maintenance")
     assert response.status_code == 200
     assert response.json() == expected_response

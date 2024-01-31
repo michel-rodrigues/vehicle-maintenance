@@ -40,7 +40,7 @@ async def test_get_registred_vehicle(registred_vehicle):
     assert registred_vehicle.plate == "ABC1A10"
     assert registred_vehicle.vehicle.manufacturer == "Honda"
     assert registred_vehicle.vehicle.model == "Fit"
-    assert registred_vehicle.vehicle.year == "2015"
+    assert registred_vehicle.vehicle.year == 2015
     services = registred_vehicle._services
     assert len(services) == 2
     assert len(services[Service.ENGINE_OIL_REPLACEMENT]) == 2
@@ -58,7 +58,7 @@ async def test_persist_new_registred_vehicle(registred_vehicle):
     assert registred_vehicle.plate == "ABC1A10"
     assert registred_vehicle.vehicle.manufacturer == "Honda"
     assert registred_vehicle.vehicle.model == "Fit"
-    assert registred_vehicle.vehicle.year == "2015"
+    assert registred_vehicle.vehicle.year == 2015
     assert len(registred_vehicle._services) == 0
 
 

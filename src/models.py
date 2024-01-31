@@ -30,10 +30,11 @@ class Service(StrEnum):
 
 
 class MaintenanceItem:
-    def __init__(self, service: Service, kilometrage: int, month_interval: int):
+    def __init__(self, service: Service, kilometrage: int = None, month_interval: int = None):
         self.service = service
         self.kilometrage = kilometrage
         self.month_interval = month_interval
+        assert kilometrage or month_interval
 
     def __eq__(self, other):
         return vars(self) == vars(other)
@@ -69,10 +70,11 @@ class Vehicle:
 
 
 class NextServiceItem:
-    def __init__(self, service: Service, kilometrage: int, months_since_vehicle_release: int):
+    def __init__(self, service: Service, kilometrage: int = None, months_since_vehicle_release: int = None):
         self.service = service
         self.kilometrage = kilometrage
         self.months_since_vehicle_release = months_since_vehicle_release
+        assert kilometrage or months_since_vehicle_release
 
     def __eq__(self, other):
         return vars(self) == vars(other)
@@ -111,12 +113,20 @@ class ServicesPerItem:
     async def _last_service(self) -> ServiceItem:
         return sorted(self._items, key=attrgetter("service_date"), reverse=True)[0]
 
+    async def _kilometrage(self, last_service: ServiceItem, maintenance_item: MaintenanceItem):
+        if maintenance_item.kilometrage:
+            return last_service.kilometrage + maintenance_item.kilometrage
+
+    async def _months_since_vehicle_release(self, last_service: ServiceItem, maintenance_item: MaintenanceItem):
+        if maintenance_item.month_interval:
+            return last_service.months_since_vehicle_release + maintenance_item.month_interval
+
     async def next_service(self, maintenance_item: MaintenanceItem) -> NextServiceItem:
         last_service = await self._last_service()
         return NextServiceItem(
             service=last_service.service,
-            kilometrage=last_service.kilometrage + maintenance_item.kilometrage,
-            months_since_vehicle_release=last_service.months_since_vehicle_release + maintenance_item.month_interval,
+            kilometrage=await self._kilometrage(last_service, maintenance_item),
+            months_since_vehicle_release=await self._months_since_vehicle_release(last_service, maintenance_item),
         )
 
 
@@ -134,11 +144,18 @@ class NextMaintenance:
         self._items.append(next_service_item)
 
 
+def utc_now():
+    return datetime.now(tz=timezone.utc)
+
+
 class RegistredVehicle:
     def __init__(self, plate: str, vehicle: Vehicle):
         self.plate = plate
         self.vehicle = vehicle
         self._services = defaultdict(ServicesPerItem)
+
+    async def months_since_release(self, utc_datetime: datetime = None):
+        return ((utc_datetime or utc_now()).year - self.vehicle.year) * 12
 
     async def services_history(self):
         return [service_item for services_per_item in self._services.values() for service_item in services_per_item]

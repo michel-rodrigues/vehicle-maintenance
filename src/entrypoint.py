@@ -33,17 +33,22 @@ async def add_service_item(service_item_payload: as_payload(ServiceItem, extra_f
 
 @app.get("/registred-vehicles/{plate}/next-maintenance")
 async def next_maintenance(plate: str):
+    registred_vehicle_repository = RegistredVehicleRepository()
     next_maintenace = await calculate_next_maintenace(
         plate,
-        RegistredVehicleRepository(),
+        registred_vehicle_repository,
         MaintenanceCatalogRepository(),
     )
-    result = [
-        {
-            "service": next_service_item.service,
-            "kilometrage": next_service_item.kilometrage,
-            "months_since_vehicle_release": next_service_item.months_since_vehicle_release,
-        }
-        for next_service_item in next_maintenace
-    ]
+    registred_vehicle = await registred_vehicle_repository.get(plate)
+    result = {
+        "months_since_vehicle_release": await registred_vehicle.months_since_release(),
+        "items": [
+            {
+                "service": next_service_item.service,
+                "kilometrage": next_service_item.kilometrage or "",
+                "months_since_vehicle_release": next_service_item.months_since_vehicle_release or "",
+            }
+            for next_service_item in next_maintenace
+        ],
+    }
     return JSONResponse(content=result, status_code=200)

@@ -47,20 +47,24 @@ async def one_item_catalog(registred_vehicle) -> MaintenanceCatalog:
 
 
 @pytest.fixture
-async def two_items_catalog(registred_vehicle) -> MaintenanceCatalog:
+async def three_items_catalog(registred_vehicle) -> MaintenanceCatalog:
     maintenance_item_1 = MaintenanceItem(
         service=Service.ENGINE_OIL_REPLACEMENT,
         kilometrage=10_000,
         month_interval=12,
     )
     maintenance_item_2 = MaintenanceItem(
-        service=Service.ENGINE_OIL_FILTER_REPLACEMENT,
+        service=Service.FUEL_FILTER_REPLACEMENT,
         kilometrage=10_000,
+    )
+    maintenance_item_3 = MaintenanceItem(
+        service=Service.INSPECT_BATTERY_CHARGE_CAPACITY,
         month_interval=12,
     )
     maintenance_catalog = MaintenanceCatalog(vehicle_id=registred_vehicle.vehicle.id)
     await maintenance_catalog.add_maintenance_item(maintenance_item_1)
     await maintenance_catalog.add_maintenance_item(maintenance_item_2)
+    await maintenance_catalog.add_maintenance_item(maintenance_item_3)
     yield maintenance_catalog
 
 

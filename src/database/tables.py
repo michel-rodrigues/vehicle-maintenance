@@ -13,7 +13,7 @@ async def create_vehicle_table(connection: Connection):
             id VARCHAR(255) PRIMARY KEY,
             manufacturer VARCHAR(255) NOT NULL,
             model VARCHAR(255) NOT NULL,
-            year VARCHAR(255) NOT NULL
+            year INT NOT NULL
         );
     """
     )

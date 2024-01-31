@@ -23,7 +23,7 @@ class FakeMaintenanceCatalogRepository(MaintenanceCatalogRepository):
         return self.maintenance_catalog
 
 
-async def test_should_calculate_next_maintenace(registred_vehicle, one_item_catalog):
+async def test_it_should_calculate_next_maintenace(registred_vehicle, one_item_catalog):
     last_service_item = ServiceItem(
         service=Service.ENGINE_OIL_REPLACEMENT,
         kilometrage=20_000,
@@ -50,22 +50,30 @@ async def test_should_calculate_next_maintenace(registred_vehicle, one_item_cata
     assert next_maintenace[0] == expected_next_service_item
 
 
-async def test_should_include_maintenances_never_perfomed_before(registred_vehicle, two_items_catalog):
-    last_service_item = ServiceItem(
-        service=Service.ENGINE_OIL_REPLACEMENT,
-        kilometrage=20_000,
-        months_since_vehicle_release=14,
-        service_date=datetime.now(tz=timezone.utc),
+async def test_it_should_include_maintenances_never_perfomed_before(registred_vehicle, three_items_catalog):
+    await registred_vehicle.maintenance_performed(
+        [
+            ServiceItem(
+                service=Service.ENGINE_OIL_REPLACEMENT,
+                kilometrage=20_000,
+                months_since_vehicle_release=14,
+                service_date=datetime.now(tz=timezone.utc),
+            ),
+            ServiceItem(
+                service=Service.FUEL_FILTER_REPLACEMENT,
+                kilometrage=20_000,
+                months_since_vehicle_release=14,
+                service_date=datetime.now(tz=timezone.utc),
+            ),
+        ]
     )
-    await registred_vehicle.maintenance_performed([last_service_item])
 
     registered_vehicle_repository = FakeRegisteredVehicleRepository(registred_vehicle)
 
-    maintenance_catalog_repository = FakeMaintenanceCatalogRepository(two_items_catalog)
+    maintenance_catalog_repository = FakeMaintenanceCatalogRepository(three_items_catalog)
 
     expected_next_service_item = NextServiceItem(
-        service=Service.ENGINE_OIL_FILTER_REPLACEMENT,
-        kilometrage=10_000,
+        service=Service.INSPECT_BATTERY_CHARGE_CAPACITY,
         months_since_vehicle_release=12,
     )
 
@@ -74,5 +82,5 @@ async def test_should_include_maintenances_never_perfomed_before(registred_vehic
         registered_vehicle_repository,
         maintenance_catalog_repository,
     )
-    assert len(next_maintenace) == 2
-    assert next_maintenace[1] == expected_next_service_item
+    assert len(next_maintenace) == 3
+    assert next_maintenace[2] == expected_next_service_item
